@@ -1,0 +1,100 @@
+# Product Requirements Document (PRD)
+
+# 1. Title
+ValinAI MVP – Value Investing Toolkit for IDX Stocks
+
+# 2. Overview
+Build a lightweight web app that helps users research Indonesian equities using value-investing principles. MVP provides: price charts, company financials, news feed with basic sentiment, and simple valuation tools (DCF + comps). Data comes from external providers via secure server-side functions (Supabase Edge Functions). Bloomberg is supported via backend proxy (stub initially).
+
+# 3. Problem Statement
+Busy professionals lack a unified, simple tool to view normalized earnings, growth expectations, and fair value ranges for IDX stocks.
+
+# 4. Goals
+- Show reliable price history charts with caching (IDX tickers, e.g., BBCA.JK).
+- Display financial statements and key ratios.
+- Provide curated news per ticker with basic sentiment tags.
+- Offer simple valuation (DCF + comps) with adjustable assumptions and ranges.
+- Support multiple data sources with a pluggable interface (Yahoo/FMP/Alpha Vantage/NewsAPI/Bloomberg).
+
+# 5. Non‑Goals (MVP)
+- Portfolio optimization, backtesting, or advanced AI chat.
+- Real-time streaming or intraday data.
+- Full Bloomberg desktop integration in the browser (requires enterprise backend; stub only).
+
+# 6. Target Users
+- Retail investors focused on long-term, fundamentals-driven investing in Indonesia.
+
+# 7. User Stories (MVP)
+- As a user, I can search a ticker and see a price chart over multiple ranges.
+- As a user, I can view the latest annual/quarterly financial statements and key metrics.
+- As a user, I can read recent news for a ticker and see simple sentiment markers.
+- As a user, I can adjust valuation assumptions and see intrinsic value ranges.
+- As a signed-in user, I can save a watchlist of tickers.
+
+# 8. Functional Requirements
+- Routing: Home, Explore, Ticker (Overview/Chart/Financials/News/Valuation), Watchlist.
+- Data Providers: pluggable interface with a primary provider flag.
+- Edge Functions: /prices, /financials, /news, /valuation (optional) with caching into Supabase tables.
+- Auth: Supabase Email/Password.
+- Watchlist persistence per user.
+
+# 9. Data Sources (MVP)
+- Prices: Yahoo Finance (IDX via .JK) (free-friendly). Alt: Finnhub/Alpha Vantage.
+- Financials: FMP or Alpha Vantage.
+- News: NewsAPI (simple) or Yahoo via aggregator.
+- Bloomberg: via server-side integration only (BLPAPI). Provide stub provider in frontend; implement server proxy later.
+
+# 10. Architecture
+- Frontend: Vite + React + TS + Tailwind + shadcn/ui, TanStack Query, Recharts.
+- Backend: Supabase Postgres + Edge Functions as secure proxy/cache.
+- Data layer: `src/data-sources/` interface; provider selection via `VITE_DATA_PROVIDER_PRIMARY`.
+- Secrets: provider API keys set in Edge Functions env (never in Vite).
+
+# 11. API (Edge Functions)
+- GET /prices/{ticker}?range=1m|3m|1y|max → { ticker, currency, bars[] }
+- GET /financials/{ticker}?period=annual|quarter → { ticker, statements[] }
+- GET /news/{ticker}?limit=20 → { ticker, items[] }
+- POST /valuation { ticker?, inputs? } → { dcf, comps, range }
+
+# 12. Data Model (Supabase)
+- price_history(id, ticker, date, o,h,l,c, volume, source, fetched_at)
+- financial_statements(id, ticker, period, stmt_type, payload_json, fetched_at)
+- news_cache(id, ticker, published_at, title, source, url, sentiment, fetched_at)
+- watchlists(id, user_id, name, created_at)
+- watchlist_items(id, watchlist_id, ticker, created_at)
+- RLS: user-owned tables filtered by user_id; caches are public read.
+
+# 13. UX Scope
+- Consistent shell/nav. Skeleton loaders and empty states.
+- Ticker page tabs: Overview (summary cards), Chart, Financials (tables), News (list with filters), Valuation (inputs + results).
+
+# 14. Milestones
+- M0: Shell, auth, routing, CI
+- M1: Prices + chart + cache
+- M2: Financials + cache
+- M3: News + basic sentiment + cache
+- M4: Valuation (DCF + comps)
+- M5: Watchlist
+- M6: Polish, docs, tests
+
+# 15. Metrics
+- Time-to-first-chart < 2s on cached data
+- API error rate < 2%
+- Cache hit rate > 60% after 7 days
+
+# 16. Risks & Mitigations
+- Rate limits → caching & backoff
+- IDX coverage → provider fallback; modular interface
+- Bloomberg licensing → keep optional; server-only impl later
+
+# 17. Env & Config
+- Vite: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_DATA_PROVIDER_PRIMARY
+- Edge Func env (examples): FMP_API_KEY, ALPHA_VANTAGE_API_KEY, NEWS_API_KEY, BLOOMBERG_* (server-only)
+
+# 18. Out of Scope (Future)
+- AI chat, advanced NLP, portfolio optimization, mobile app
+
+# 19. Open Questions
+- Preferred providers and budget?
+- Minimum data freshness (TTL) per dataset?
+- Which valuation defaults (WACC, terminal growth) for IDX?
