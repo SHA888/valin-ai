@@ -1,0 +1,158 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Project Setup and Authentication",
+        "description": "Initialize the project with Vite, React, TypeScript, Tailwind, and shadcn/ui. Set up Supabase authentication with email/password.",
+        "details": "1. Create a new Vite project with React and TypeScript template\n2. Install and configure Tailwind CSS\n3. Set up shadcn/ui components\n4. Configure TanStack Query for data fetching\n5. Initialize Supabase client\n6. Create authentication components (SignIn, SignUp, ResetPassword)\n7. Implement authentication context/provider\n8. Set up protected routes\n9. Configure environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_DATA_PROVIDER_PRIMARY)\n10. Create CI pipeline for build and deployment",
+        "testStrategy": "1. Unit tests for authentication components\n2. Integration tests for authentication flow\n3. E2E test for signup and login process\n4. Verify environment variables are properly loaded\n5. Test protected routes redirect unauthenticated users",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Application Routing and Shell",
+        "description": "Implement the application routing structure and shell layout with consistent navigation for Home, Explore, Ticker (with tabs), and Watchlist pages.",
+        "details": "1. Set up React Router with the following routes:\n   - / (Home)\n   - /explore\n   - /ticker/:symbol (with nested routes for Overview, Chart, Financials, News, Valuation)\n   - /watchlist\n2. Create a main layout component with:\n   - Header with logo, search bar, and authentication status\n   - Navigation menu\n   - Main content area\n   - Footer\n3. Implement skeleton loaders for all main content areas\n4. Create empty states for pages with no data\n5. Design responsive layouts for mobile and desktop\n6. Implement ticker search functionality with autocomplete\n7. Create tab navigation for ticker detail pages",
+        "testStrategy": "1. Unit tests for layout components\n2. Test routing functionality and nested routes\n3. Verify responsive design across different screen sizes\n4. Test skeleton loaders appear during loading states\n5. Verify empty states render correctly when no data is available",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Data Source Interface and Provider Implementation",
+        "description": "Create a pluggable data source interface and implement primary providers for prices, financials, and news data.",
+        "details": "1. Create a data source interface in `src/data-sources/` with the following structure:\n```typescript\n// Base interface for all data providers\ninterface DataProvider {\n  getName(): string;\n  getPrices(ticker: string, range: TimeRange): Promise<PriceData>;\n  getFinancials(ticker: string, period: 'annual' | 'quarter'): Promise<FinancialData>;\n  getNews(ticker: string, limit: number): Promise<NewsData>;\n  getValuation?(ticker: string, inputs?: ValuationInputs): Promise<ValuationData>;\n}\n\n// Implementation for Yahoo Finance\nclass YahooFinanceProvider implements DataProvider { ... }\n\n// Implementation for FMP\nclass FMPProvider implements DataProvider { ... }\n\n// Implementation for Alpha Vantage\nclass AlphaVantageProvider implements DataProvider { ... }\n\n// Implementation for NewsAPI\nclass NewsAPIProvider implements DataProvider { ... }\n\n// Stub implementation for Bloomberg\nclass BloombergStubProvider implements DataProvider { ... }\n```\n2. Create a provider factory that selects the appropriate provider based on the VITE_DATA_PROVIDER_PRIMARY environment variable\n3. Implement fallback logic for when a primary provider fails\n4. Create type definitions for all data structures",
+        "testStrategy": "1. Unit tests for each provider implementation\n2. Mock API responses for testing\n3. Test provider factory correctly selects providers\n4. Test fallback logic when primary provider fails\n5. Verify type safety across the interface",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Supabase Edge Functions and Data Caching",
+        "description": "Implement Supabase Edge Functions for secure data fetching and caching. Create database tables for caching price history, financial statements, and news.",
+        "details": "1. Set up Supabase project and database\n2. Create the following tables in Supabase:\n```sql\nCREATE TABLE price_history (\n  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n  ticker TEXT NOT NULL,\n  date TIMESTAMP NOT NULL,\n  o NUMERIC,\n  h NUMERIC,\n  l NUMERIC,\n  c NUMERIC,\n  volume NUMERIC,\n  source TEXT,\n  fetched_at TIMESTAMP DEFAULT NOW()\n);\n\nCREATE TABLE financial_statements (\n  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n  ticker TEXT NOT NULL,\n  period TEXT NOT NULL,\n  stmt_type TEXT NOT NULL,\n  payload_json JSONB,\n  fetched_at TIMESTAMP DEFAULT NOW()\n);\n\nCREATE TABLE news_cache (\n  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n  ticker TEXT NOT NULL,\n  published_at TIMESTAMP,\n  title TEXT,\n  source TEXT,\n  url TEXT,\n  sentiment TEXT,\n  fetched_at TIMESTAMP DEFAULT NOW()\n);\n```\n3. Implement the following Edge Functions:\n   - GET /prices/{ticker}?range=1m|3m|1y|max\n   - GET /financials/{ticker}?period=annual|quarter\n   - GET /news/{ticker}?limit=20\n   - POST /valuation { ticker?, inputs? }\n4. Implement caching logic in Edge Functions:\n   - Check cache first\n   - If cache miss or stale, fetch from provider\n   - Store results in cache\n   - Return data\n5. Configure environment variables for API keys in Edge Functions\n6. Set up Row Level Security (RLS) policies for tables",
+        "testStrategy": "1. Unit tests for Edge Functions\n2. Test caching logic with various TTL scenarios\n3. Verify RLS policies work correctly\n4. Test error handling and rate limit handling\n5. Measure and verify cache hit rates\n6. Test with mock providers to ensure interface compatibility",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Price Chart Implementation",
+        "description": "Implement the price chart feature with multiple time ranges, using Recharts for visualization and the data provider interface for fetching data.",
+        "details": "1. Create a ChartComponent using Recharts\n2. Implement time range selector (1m, 3m, 1y, max)\n3. Add loading states and error handling\n4. Implement data fetching using TanStack Query:\n```typescript\nconst usePriceData = (ticker: string, range: TimeRange) => {\n  return useQuery([\n    'prices',\n    ticker,\n    range\n  ], () => supabase.functions.invoke('prices', {\n    body: { ticker, range }\n  }), {\n    staleTime: 5 * 60 * 1000, // 5 minutes\n    refetchOnWindowFocus: false\n  });\n};\n```\n5. Add chart customization options (candle/line, indicators)\n6. Implement responsive design for different screen sizes\n7. Add tooltips for price data points\n8. Implement skeleton loader for chart during data fetching",
+        "testStrategy": "1. Unit tests for chart component\n2. Test data fetching and caching\n3. Test time range selector functionality\n4. Verify chart renders correctly with different data sets\n5. Test loading and error states\n6. Measure time-to-first-chart and ensure it's < 2s on cached data",
+        "priority": "medium",
+        "dependencies": [
+          2,
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Financial Statements and Key Metrics",
+        "description": "Implement the financial statements feature with annual and quarterly data, including key metrics and ratios.",
+        "details": "1. Create components for displaying financial statements:\n   - Income Statement\n   - Balance Sheet\n   - Cash Flow Statement\n   - Key Ratios\n2. Implement period selector (annual/quarterly)\n3. Create data fetching hooks using TanStack Query\n4. Add table components with sorting and filtering\n5. Implement data visualization for key metrics\n6. Add tooltips for financial terms\n7. Create comparison view for multiple periods\n8. Implement export functionality (CSV/Excel)\n9. Add loading states and error handling",
+        "testStrategy": "1. Unit tests for financial statement components\n2. Test data fetching and caching\n3. Verify calculations for derived metrics\n4. Test period selector functionality\n5. Verify table sorting and filtering\n6. Test export functionality\n7. Verify data is displayed correctly for different companies",
+        "priority": "medium",
+        "dependencies": [
+          2,
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "News Feed with Sentiment Analysis",
+        "description": "Implement the news feed feature with basic sentiment analysis for ticker-specific news.",
+        "details": "1. Create a NewsComponent to display news items\n2. Implement infinite scrolling for news feed\n3. Add filters for news sources and date ranges\n4. Create sentiment indicators (positive, neutral, negative)\n5. Implement data fetching using TanStack Query\n6. Add loading states and error handling\n7. Create a sentiment summary component\n8. Implement click tracking for news items\n9. Add share functionality for news items\n10. Create a simple sentiment algorithm in the Edge Function:\n```typescript\nfunction analyzeSentiment(title: string, content: string): 'positive' | 'neutral' | 'negative' {\n  // Simple keyword-based sentiment analysis\n  const positiveWords = ['up', 'gain', 'profit', 'growth', 'rise', 'positive', 'beat', 'exceed'];\n  const negativeWords = ['down', 'loss', 'decline', 'fall', 'negative', 'miss', 'below', 'cut'];\n  \n  const text = (title + ' ' + content).toLowerCase();\n  let score = 0;\n  \n  positiveWords.forEach(word => {\n    if (text.includes(word)) score++;\n  });\n  \n  negativeWords.forEach(word => {\n    if (text.includes(word)) score--;\n  });\n  \n  if (score > 0) return 'positive';\n  if (score < 0) return 'negative';\n  return 'neutral';\n}\n```",
+        "testStrategy": "1. Unit tests for news component\n2. Test sentiment analysis algorithm\n3. Test infinite scrolling functionality\n4. Verify filters work correctly\n5. Test loading and error states\n6. Verify news items are displayed correctly\n7. Test caching of news data",
+        "priority": "medium",
+        "dependencies": [
+          2,
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Valuation Tools Implementation",
+        "description": "Implement simple valuation tools including DCF and comparables analysis with adjustable assumptions.",
+        "details": "1. Create a ValuationComponent with tabs for DCF and Comparables\n2. Implement input forms for valuation assumptions:\n   - DCF: WACC, terminal growth rate, forecast periods\n   - Comparables: peer companies, metrics (P/E, EV/EBITDA, etc.)\n3. Create visualization for valuation ranges\n4. Implement sensitivity analysis\n5. Add tooltips for valuation terms\n6. Create data fetching hooks using TanStack Query\n7. Implement valuation calculations in Edge Function:\n```typescript\nfunction calculateDCF(financials, inputs) {\n  const { wacc, terminalGrowthRate, forecastPeriods } = inputs;\n  // Project cash flows\n  const projectedCashFlows = [];\n  // Calculate terminal value\n  // Discount cash flows\n  // Return valuation range\n}\n\nfunction calculateComparables(ticker, peers, metrics) {\n  // Fetch peer data\n  // Calculate valuation multiples\n  // Apply multiples to subject company\n  // Return valuation range\n}\n```\n8. Add loading states and error handling\n9. Implement save/load functionality for valuation scenarios",
+        "testStrategy": "1. Unit tests for valuation components\n2. Test valuation calculations\n3. Verify input validation\n4. Test sensitivity analysis\n5. Verify visualization of valuation ranges\n6. Test save/load functionality\n7. Verify calculations match expected results for known companies",
+        "priority": "medium",
+        "dependencies": [
+          2,
+          3,
+          4,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Watchlist Implementation",
+        "description": "Implement watchlist functionality for signed-in users to save and track tickers.",
+        "details": "1. Create database tables for watchlists:\n```sql\nCREATE TABLE watchlists (\n  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n  user_id UUID REFERENCES auth.users NOT NULL,\n  name TEXT NOT NULL,\n  created_at TIMESTAMP DEFAULT NOW()\n);\n\nCREATE TABLE watchlist_items (\n  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n  watchlist_id UUID REFERENCES watchlists NOT NULL,\n  ticker TEXT NOT NULL,\n  created_at TIMESTAMP DEFAULT NOW()\n);\n```\n2. Set up RLS policies to ensure users can only access their own watchlists\n3. Create a WatchlistComponent to display and manage watchlists\n4. Implement CRUD operations for watchlists and items\n5. Add a \"Add to Watchlist\" button on ticker pages\n6. Create a watchlist summary view with key metrics\n7. Implement drag-and-drop for reordering watchlist items\n8. Add sorting and filtering options\n9. Implement data fetching using TanStack Query\n10. Add loading states and error handling",
+        "testStrategy": "1. Unit tests for watchlist components\n2. Test CRUD operations\n3. Verify RLS policies work correctly\n4. Test drag-and-drop functionality\n5. Verify sorting and filtering\n6. Test \"Add to Watchlist\" functionality\n7. Verify watchlist data persists correctly",
+        "priority": "low",
+        "dependencies": [
+          1,
+          2,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Performance Optimization and Testing",
+        "description": "Optimize application performance, implement comprehensive testing, and add documentation.",
+        "details": "1. Implement code splitting and lazy loading\n2. Optimize bundle size\n3. Add service worker for offline capability\n4. Implement memoization for expensive calculations\n5. Add performance monitoring:\n   - Time-to-first-chart < 2s on cached data\n   - API error rate < 2%\n   - Cache hit rate > 60% after 7 days\n6. Create comprehensive test suite:\n   - Unit tests\n   - Integration tests\n   - E2E tests\n7. Add error tracking and logging\n8. Create user documentation\n9. Add developer documentation\n10. Implement feature flags for gradual rollout",
+        "testStrategy": "1. Measure and verify performance metrics\n2. Run lighthouse audits\n3. Test application under various network conditions\n4. Verify error tracking and logging\n5. Test offline capability\n6. Run comprehensive test suite\n7. Conduct user testing",
+        "priority": "low",
+        "dependencies": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-08-08T21:36:58.787Z",
+      "updated": "2025-08-08T21:36:58.787Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
